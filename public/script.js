@@ -1,14 +1,25 @@
 
+const Models = [
+  {
+    name: 'boobies',
+    rotation: [0, Math.PI / 4, -Math.PI * 2],
+    position: [0, 0, -1],
+    scale: [.1, .1, .1]
+  }
+]
 class Home {
   constructor() {
     this.canvas = document.getElementById('canvas')
     this.testButton = document.getElementById('test')
     this.homeContainer = document.getElementById('home-container')
+    this.optionContainer = document.getElementById('option-container')
+    this.loadingEl = document.getElementById('loading')
     this.space = null
     this.objectLoader = new THREE.OBJLoader()
-    this.textureLoader = new THREE.TextureLoader()
     this.mtlLoader = new THREE.MTLLoader()
     this.objects = []
+    this.isLoading = true
+    this.renderLoading()
     this.loadObjects()
     this.setHomeVisibility(false)
     this.addEventListeners()
@@ -18,25 +29,25 @@ class Home {
     this.testButton.addEventListener('click', this.displayTest)
   }
 
-  loadObjects () {
-    this.mtlLoader
-    .setMaterialOptions({
-      invertTrProperty: true
-    })
-    .load(
-      './capsule.mtl',
+  loadObject = (model, idx) => {
+    this.mtlLoader.load(
+      `./${model.name}/${model.name}.mtl`,
       materials => {
         materials.preload()
-        this.objectLoader
-        .setMaterials(materials)
+        this.objectLoader.setMaterials(materials)
+        this.objectLoader.setPath(`./${model.name}`)
         this.objectLoader.load(
-          './capsule.obj',
+          `/${model.name}.obj`,
           obj => {
-            obj.scale.set(.3, .3, .3)
-            obj.position.z = -1
-            obj.rotation.x = -Math.PI / 2
+            obj.scale.set(...model.scale)
+            obj.position.set(...model.position)
+            obj.rotation.set(...model.rotation)
             obj.castShadow = true
             this.objects.push(obj)
+            if (Models.length === this.objects.length) {
+              this.isLoading = false
+              this.renderLoading()
+            }
           },
           xhr => {
             console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' )
@@ -45,14 +56,22 @@ class Home {
             console.log(err)
           }
         )
+        })
       }
-    )
+
+  loadObjects () {
+    Models.forEach(this.loadObject)
   }
 
   displayTest = ev => {
     this.space = new Space()
     this.space.addObjects(this.objects)
     this.setHomeVisibility(true)
+  }
+
+  renderLoading() {
+    this.optionContainer.style.display = this.isLoading ? 'none' : 'block'
+    this.loadingEl.style.display = this.isLoading ? 'block' : 'none'
   }
 
   setHomeVisibility(isHidden) {
@@ -65,6 +84,7 @@ class Space {
   constructor() {
     let canvas = this.canvas = document.getElementById('canvas')
     this.scene = new THREE.Scene()
+    this
     this.renderer = new THREE.WebGLRenderer({
       canvas
     })
@@ -106,26 +126,6 @@ class Space {
     this.scene.add( light )
   }
 
-  addTestBoxes() {
-    const boxWidth = 1
-    const boxHeight = 1
-    const boxDepth = 1
-    const geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth)
-    // let cubes = this.cubes = [
-    //   this.addGeometry(geometry, 0x44aa88,  0),
-    //   this.addGeometry(geometry, 0x8844aa, -2),
-    //   this.addGeometry(geometry, 0xaa8844,  2)
-    // ]
-  }
-
-  addGeometry(geometry, color, x) {
-    const material = new THREE.MeshPhongMaterial({color})
-    const cube = new THREE.Mesh(geometry, material)
-    this.scene.add(cube)
-    cube.position.x = x
-    return cube
-  }
-
   addObjects(objects) {
     this.objects = objects
     objects.forEach(obj => {
@@ -134,20 +134,11 @@ class Space {
   }
 
   render = time => {
-    // time *= 0.001
     if (this.resizeRendererToDisplaySize(this.renderer)) {
       const canvas = this.renderer.domElement
       this.camera.aspect = canvas.clientWidth / canvas.clientHeight
       this.camera.updateProjectionMatrix()
     }
-
-    // this.cubes.forEach((cube, ndx) => {
-    //   const speed = 1 + ndx * .1
-    //   const rot = time * speed
-    //   cube.rotation.x = rot
-    //   cube.rotation.y = rot
-    // })
-
     this.renderer.render(this.scene, this.camera)
     requestAnimationFrame(this.render)
   }
@@ -158,15 +149,10 @@ class Space {
     mouse.y = -(ev.clientY / window.innerHeight) * 2 + 1
     this.raycaster.setFromCamera(mouse, this.camera)
     var intersects = this.raycaster.intersectObjects(this.objects, true)
-    console.log(intersects)
-    for ( var i = 0; i < intersects.length; i++ ) {
-      console.log(intersects[i])
-  
-      intersects[ i ].object.material.color.set( 0xff0000 );
-  
+    for ( var i = 0; i < intersects.length; i++ ) {  
+      intersects[ i ].object.material.color.set( 0xff0000 ) // set intersects to red
     }
-  
-    this.renderer.render( this.scene, this.camera );
+    this.renderer.render(this.scene, this.camera)
   }
 
   resizeRendererToDisplaySize(renderer) {
